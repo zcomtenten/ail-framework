@@ -120,7 +120,7 @@ git describe --abbrev=0 --tags
 popd
 
 # LAUNCH ARDB
-bash ${AIL_BIN}/LAUNCH.sh -lav &
+bash ${AIL_BIN}/LAUNCH.sh -ldb &
 wait
 echo ""
 
