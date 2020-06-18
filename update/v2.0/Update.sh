@@ -43,7 +43,7 @@ wait
 echo ""
 echo ""
 
-bash ${AIL_BIN}/LAUNCH.sh -lav &
+bash ${AIL_BIN}/LAUNCH.sh -ldbv &
 wait
 echo ""
 

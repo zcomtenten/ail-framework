@@ -37,7 +37,7 @@ echo -e $GREEN"Update requirement"$DEFAULT
 echo ""
 pip3 install beautifulsoup4
 
-bash ${AIL_BIN}LAUNCH.sh -lav &
+bash ${AIL_BIN}LAUNCH.sh -ldbv &
 wait
 echo ""
 

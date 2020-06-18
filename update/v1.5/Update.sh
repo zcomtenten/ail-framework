@@ -38,7 +38,7 @@ bash -c "(cd ${AIL_FLASK}; ./update_thirdparty.sh &)"
 wait
 echo ""
 
-bash ${AIL_BIN}LAUNCH.sh -lav &
+bash ${AIL_BIN}LAUNCH.sh -ldbv &
 wait
 echo ""
 

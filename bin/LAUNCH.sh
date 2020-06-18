@@ -34,16 +34,18 @@ export AIL_BIN=${AIL_HOME}/bin/
 export AIL_FLASK=${AIL_HOME}/var/www/
 export AIL_REDIS=${AIL_HOME}/redis/src/
 export AIL_ARDB=${AIL_HOME}/ardb/src/
+export AIL_KVROCKS=${AIL_HOME}/kvrocks/src/
 
 export PATH=$AIL_VENV/bin:$PATH
 export PATH=$AIL_HOME:$PATH
 export PATH=$AIL_REDIS:$PATH
 export PATH=$AIL_ARDB:$PATH
+export PATH=$AIL_KVROCKS:$PATH
 export PATH=$AIL_BIN:$PATH
 export PATH=$AIL_FLASK:$PATH
 
 isredis=`screen -ls | egrep '[0-9]+.Redis_AIL' | cut -d. -f1`
-isardb=`screen -ls | egrep '[0-9]+.ARDB_AIL' | cut -d. -f1`
+isdb=`screen -ls | egrep '[0-9]+.DB_AIL' | cut -d. -f1`
 islogged=`screen -ls | egrep '[0-9]+.Logging_AIL' | cut -d. -f1`
 isqueued=`screen -ls | egrep '[0-9]+.Queue_AIL' | cut -d. -f1`
 isscripted=`screen -ls | egrep '[0-9]+.Script_AIL' | cut -d. -f1`
@@ -69,7 +71,7 @@ function helptext {
     - All the queuing modules.
     - All the processing modules.
     - All Redis in memory servers.
-    - All ARDB on disk servers.
+    - All DB on disk servers.
     "$DEFAULT"
     (Inside screen Daemons)
     "$DEFAULT"
@@ -102,15 +104,21 @@ function launching_redis {
     screen -S "Redis_AIL" -X screen -t "6381" bash -c 'redis-server '$conf_dir'6381.conf ; read x'
 }
 
-function launching_ardb {
+function launching_db {
     conf_dir="${AIL_HOME}/configs/"
 
-    screen -dmS "ARDB_AIL"
+    screen -dmS "DB_AIL"
     sleep 0.1
-    echo -e $GREEN"\t* Launching ARDB servers"$DEFAULT
 
-    sleep 0.1
-    screen -S "ARDB_AIL" -X screen -t "6382" bash -c 'cd '${AIL_HOME}'; ardb-server '$conf_dir'6382.conf ; read x'
+    if [ -d "$AIL_KVROCKS" ]; then
+        echo -e $GREEN"\t* Launching KVROCKS servers"$DEFAULT
+        sleep 0.1
+        screen -S "DB_AIL" -X screen -t "6382" bash -c 'cd '${AIL_HOME}'; ./kvrocks/src/kvrocks '$conf_dir'6382_kvrocks.conf ; read x'
+    else
+        echo -e $GREEN"\t* Launching ARDB servers"$DEFAULT
+        sleep 0.1
+        screen -S "DB_AIL" -X screen -t "6382" bash -c 'cd '${AIL_HOME}'; ardb-server '$conf_dir'6382_ardb.conf ; read x'
+    fi
 }
 
 function launching_logs {
@@ -266,7 +274,7 @@ function shutting_down_redis {
     bash -c $redis_dir'redis-cli -p 6381 SHUTDOWN'
 }
 
-function shutting_down_ardb {
+function shutting_down_db {
     redis_dir=${AIL_HOME}/redis/src/
     bash -c $redis_dir'redis-cli -p 6382 SHUTDOWN'
 }
@@ -296,17 +304,17 @@ function checking_redis {
     return $flag_redis;
 }
 
-function checking_ardb {
-    flag_ardb=0
+function checking_db {
+    flag_db=0
     redis_dir=${AIL_HOME}/redis/src/
     sleep 0.2
     bash -c $redis_dir'redis-cli -p 6382 PING | grep "PONG" &> /dev/null'
     if [ ! $? == 0 ]; then
-        echo -e $RED"\t6382 ARDB not ready"$DEFAULT
-        flag_ardb=1
+        echo -e $RED"\t6382 DB not ready"$DEFAULT
+        flag_db=1
     fi
 
-    return $flag_ardb;
+    return $flag_db;
 }
 
 function wait_until_redis_is_ready {
@@ -321,16 +329,16 @@ function wait_until_redis_is_ready {
     echo -e $YELLOW"\t* Redis Launched"$DEFAULT
 }
 
-function wait_until_ardb_is_ready {
-    ardb_not_ready=true;
-    while $ardb_not_ready; do
-        if checking_ardb; then
-            ardb_not_ready=false
+function wait_until_db_is_ready {
+    db_not_ready=true;
+    while $db_not_ready; do
+        if checking_db; then
+            db_not_ready=false
         else
             sleep 3
         fi
     done
-    echo -e $YELLOW"\t* ARDB Launched"$DEFAULT
+    echo -e $YELLOW"\t* DB Launched"$DEFAULT
 }
 
 function launch_redis {
@@ -341,9 +349,9 @@ function launch_redis {
     fi
 }
 
-function launch_ardb {
-    if [[ ! $isardb ]]; then
-        launching_ardb;
+function launch_db {
+    if [[ ! $isdb ]]; then
+        launching_db;
     else
         echo -e $RED"\t* A screen is already launched"$DEFAULT
     fi
@@ -368,14 +376,14 @@ function launch_queues {
 function launch_scripts {
     if [[ ! $isscripted ]]; then
       sleep 1
-        if checking_ardb && checking_redis; then
+        if checking_db && checking_redis; then
             launching_scripts;
         else
             no_script_launched=true
             while $no_script_launched; do
                 echo -e $YELLOW"\tScript not started, waiting 5 more secondes"$DEFAULT
                 sleep 5
-                if checking_redis && checking_ardb; then
+                if checking_redis && checking_db; then
                     launching_scripts;
                     no_script_launched=false
                 else
@@ -426,21 +434,21 @@ function killscript {
 }
 
 function killall {
-    if [[ $isredis || $isardb || $islogged || $isqueued || $isscripted || $isflasked || $isfeeded || $iscrawler ]]; then
+    if [[ $isredis || $isdb || $islogged || $isqueued || $isscripted || $isflasked || $isfeeded || $iscrawler ]]; then
         if [[ $isredis ]]; then
             echo -e $GREEN"Gracefully closing redis servers"$DEFAULT
             shutting_down_redis;
             sleep 0.2
         fi
-        if [[ $isardb ]]; then
-            echo -e $GREEN"Gracefully closing ardb servers"$DEFAULT
-            shutting_down_ardb;
+        if [[ $isdb ]]; then
+            echo -e $GREEN"Gracefully closing DB servers"$DEFAULT
+            shutting_down_db;
         fi
         echo -e $GREEN"Killing all"$DEFAULT
-        kill $isredis $isardb $islogged $isqueued $isscripted $isflasked $isfeeded $iscrawler
+        kill $isredis $isdb $islogged $isqueued $isscripted $isflasked $isfeeded $iscrawler
         sleep 0.2
         echo -e $ROSE`screen -ls`$DEFAULT
-        echo -e $GREEN"\t* $isredis $isardb $islogged $isqueued $isscripted $isflasked $isfeeded $iscrawler killed."$DEFAULT
+        echo -e $GREEN"\t* $isredis $isdb $islogged $isqueued $isscripted $isflasked $isfeeded $iscrawler killed."$DEFAULT
     else
         echo -e $RED"\t* No screen to kill"$DEFAULT
     fi
@@ -486,11 +494,11 @@ function update_thirdparty {
 
 function reset_password() {
   echo -e "\t* Reseting UI admin password..."
-  if checking_ardb && checking_redis; then
+  if checking_db && checking_redis; then
       python ${AIL_HOME}/var/www/create_default_user.py &
       wait
   else
-      echo -e $RED"\t* Error: Please launch all Redis and ARDB servers"$DEFAULT
+      echo -e $RED"\t* Error: Please launch all Redis and DB servers"$DEFAULT
       exit
   fi
 }
@@ -499,7 +507,7 @@ function launch_all {
     checking_configuration;
     update;
     launch_redis;
-    launch_ardb;
+    launch_db;
     launch_logs;
     launch_queues;
     launch_scripts;
@@ -508,7 +516,7 @@ function launch_all {
 
 function menu_display {
 
-  options=("Redis" "Ardb" "Logs" "Queues" "Scripts" "Flask" "Killall" "Shutdown" "Update" "Update-config" "Update-thirdparty")
+  options=("Redis" "Db" "Logs" "Queues" "Scripts" "Flask" "Killall" "Shutdown" "Update" "Update-config" "Update-thirdparty")
 
   menu() {
       echo "What do you want to Launch?:"
@@ -536,8 +544,8 @@ function menu_display {
               Redis)
                   launch_redis;
                   ;;
-              Ardb)
-                  launch_ardb;
+              Db)
+                  launch_db;
                   ;;
               Logs)
                   launch_logs;
@@ -592,13 +600,13 @@ while [ "$1" != "" ]; do
                                       ;;
         -lr | --launchRedis )         launch_redis;
                                       ;;
-        -la | --launchARDB )          launch_ardb;
+        -ldb | --launchDB )            launch_db;
                                       ;;
         -lrv | --launchRedisVerify )  launch_redis;
                                       wait_until_redis_is_ready;
                                       ;;
-        -lav | --launchARDBVerify )   launch_ardb;
-                                      wait_until_ardb_is_ready;
+        -ldbv | --launchDBVerify )    launch_db;
+                                      wait_until_db_is_ready;
                                       ;;
         -k | --killAll )              killall;
                                       ;;
