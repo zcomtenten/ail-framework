@@ -113,7 +113,7 @@ function launching_db {
     if [ -d "$AIL_KVROCKS" ]; then
         echo -e $GREEN"\t* Launching KVROCKS servers"$DEFAULT
         sleep 0.1
-        screen -S "DB_AIL" -X screen -t "6382" bash -c 'cd '${AIL_HOME}'; ./kvrocks/src/kvrocks '$conf_dir'6382_kvrocks.conf ; read x'
+        screen -S "DB_AIL" -X screen -t "6382" bash -c 'cd '${AIL_HOME}'; ./kvrocks/src/kvrocks -c '$conf_dir'6382_kvrocks.conf ; read x'
     else
         echo -e $GREEN"\t* Launching ARDB servers"$DEFAULT
         sleep 0.1
@@ -600,7 +600,7 @@ while [ "$1" != "" ]; do
                                       ;;
         -lr | --launchRedis )         launch_redis;
                                       ;;
-        -ldb | --launchDB )            launch_db;
+        -ldb | --launchDB )           launch_db;
                                       ;;
         -lrv | --launchRedisVerify )  launch_redis;
                                       wait_until_redis_is_ready;
